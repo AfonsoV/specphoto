@@ -14,6 +14,8 @@ except ImportError:
     raise SPError("Package fsps not found, please install this prior to using this package.")
 
 
+
+
 class SPSModel:
 
     DefaultBands = ['wfc_acs_f435w','wfc_acs_f606w','wfc_acs_f814w',\
@@ -71,10 +73,10 @@ class SPSModel:
 
 
 
-    def create_grid(self,ebv=None,ages=None,HaEW=None,zGrid=None, debug=True):
+    def create_grid(self,fname,ebv=None,ages=None,HaEW=None,zGrid=None, colorList=None,debug=False):
 
-        def _write_grid():
-            fout = h5py.File("ModelGrid.hdf5","w")
+        def _write_grid(fname):
+            fout = h5py.File(fname,"w")
 
             gridDataset = fout.create_dataset("grid",data=model_grid)
             fout.create_dataset("ages",data=ages)
@@ -93,7 +95,12 @@ class SPSModel:
             return None
 
         color_idxs = []
-        for clr in SPSModel.DefaultColors:
+        if colorList is  None:
+            assumedColors = SPSModel.DefaultColors
+        else:
+            assumedColors = colorList
+            
+        for clr in assumedColors:
             color_idx = (self.filter_names.index(clr[0]),self.filter_names.index(clr[1]))
             color_idxs.append(color_idx)
 
@@ -143,7 +150,7 @@ class SPSModel:
         tend = time.time()
         if debug is True:
             print(f"Elapsed {tend-tstart} secs on grid creation")
-        _write_grid()
+        _write_grid(fname)
 
         # self.model.params['dust2'] = 0.00 * 4.05 # E(B-V) * RV
         # mags= self.model.get_mags(tage=ages[0],redshift=zGrid[0], bands=self.filter_names)
@@ -171,4 +178,43 @@ class SPSModel:
         #
         # self.model.params['dust2'] = 0.20 * 4.05 # E(B-V) * RV
         # print(self.model.get_mags(tage=0.1,redshift=2.0, bands=self.filter_names))
+        return
+
+
+
+
+def running_median(var_x,var_y,nbins,bin_width=None,pre_selx=None,pre_sely=None):
+
+    x_center = np.linspace(min(var_x),max(var_x),nbins)
+
+    if bin_width is None:
+        bin_width = 1.5*(x_center[1]-x_center[0])
+
+    percentiles = np.zeros([x_center.size,3])
+    for i in range(nbins):
+        bin_sel = (var_x>=x_center[i]-bin_width)*(var_x<x_center[i]+bin_width)
+        binmed = x_center[i]
+
+
+        if pre_selx is None and pre_sely is None:
+            V=var_y[bin_sel]
+        elif pre_selx is None:
+            V=var_y[bin_sel*pre_sely]
+        elif pre_sely is None:
+            V=var_y[pre_selx*bin_sel]
+        else:
+            V=var_y[pre_selx*bin_sel*pre_sely]
+
+        if np.size(V)>0:
+            percentiles[i,:] = np.percentile(V,[16,50,84])
+        else:
+            percentiles[i,:] = [0,0,0]
+
+    return x_center,percentiles
+
+
+class GalaxyData:
+
+    def __init__(self,table):
+        self.table = table
         return
