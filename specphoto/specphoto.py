@@ -72,6 +72,38 @@ class SPSModel:
         return zs_data,cs_data
 
 
+    def _define_colors(self,colorList=None):
+        color_idxs = []
+        if colorList is  None:
+            assumedColors = SPSModel.DefaultColors
+        else:
+            assumedColors = colorList
+
+        for clr in assumedColors:
+            color_idx = (self.filter_names.index(clr[0]),self.filter_names.index(clr[1]))
+            color_idxs.append(color_idx)
+        return color_idxs
+
+
+    def added_emission_line_spectra(self,age,ebv,HaEw,logzsol=0,**kwargs):
+        wave, spec = self.model.get_spectrum(tage=age,peraa=True)
+        emLineSpec = EmissionSpectrum(wave)
+        emLineSpec.halpha_model(spec, HaEw, logzsol=logzsol,**kwargs)
+        return wave, spec+emLineSpec.flux
+
+    def get_colors_emission_line(self,zGrid,age,ebv,HaEw,colorList=None,logzsol=0,**kwargs):
+        FilterList = observate.load_filters(self.filter_names)
+        color_idxs = self._define_colors(colorList)
+        WaveModel,SpecModel = self.added_emission_line_spectra(age,ebv,HaEw,logzsol=logzsol,**kwargs)
+
+        ncolors = len(color_idxs)
+        nzGrid = len(zGrid)
+        color_grid = np.zeros([ncolors,nzGrid])
+        for i,z in enumerate(zGrid):
+            mags = observate.getSED(WaveModel*(1+z),SpecModel, filterlist=FilterList)
+            colors = [ mags[c[0]]-mags[c[1]] for c in color_idxs ]
+            color_grid[:,i] = colors
+        return color_grid
 
     def create_grid(self,fname,ebv=None,ages=None,HaEW=None,zGrid=None, colorList=None,debug=False):
 
@@ -94,15 +126,7 @@ class SPSModel:
             fout.close()
             return None
 
-        color_idxs = []
-        if colorList is  None:
-            assumedColors = SPSModel.DefaultColors
-        else:
-            assumedColors = colorList
-            
-        for clr in assumedColors:
-            color_idx = (self.filter_names.index(clr[0]),self.filter_names.index(clr[1]))
-            color_idxs.append(color_idx)
+        color_idxs = self._define_colors(colorList)
 
         if debug is True:
             print("CLRS",color_idxs)
