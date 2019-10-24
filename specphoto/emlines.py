@@ -98,9 +98,10 @@ class EmissionSpectrum:
         lineAmp = ew * continuum / (sigma * np.sqrt(2*np.pi))
         return lineAmp
 
-    def halpha_model(self,f_nu,ew_ha,logzsol=0,ebv=0,csi=0.5,OIIIrat=3,o3o2=0.35,OIIrat=1.4,added_lines=True):
+    def halpha_model(self,f_nu,ew_ha,logzsol=0,ebv=0,alpha=0,redshift=2,csi=0.5,OIIIrat=3,o3o2=0.35,OIIrat=1.4,added_lines=True):
         fwhm = 10 ## AA (see Faisst et al. 2016, sect. 3.2.2)
         fwhm_weak = 5  ## AA (see Faisst et al. 2016, sect. 3.2.2)
+        z_pivot = 2
 
         sigma = fwhm / (2*np.sqrt(2*np.log(2)))
 
@@ -109,8 +110,10 @@ class EmissionSpectrum:
         Hbeta = 4861.4
         Halpha = 6564.5
 
+        ew_haz = ew_ha * ((1+redshift)/(1+z_pivot))**(alpha)
+
         ## total_flux = A*np.sqrt(2*np.pi)*sigma
-        Halpha_amp = self._get_amplitude_from_ew(f_nu,Halpha,ew_ha,sigma)
+        Halpha_amp = self._get_amplitude_from_ew(f_nu,Halpha,ew_haz,sigma)
         self.add_emission_line(Halpha,amp=Halpha_amp,fwhm=fwhm)
 
 
@@ -118,6 +121,7 @@ class EmissionSpectrum:
         kbeta = klambda_salim_highz(Hbeta/1e4)
         Hbeta_amp = 10**(-0.4*ebv*(kbeta-kalpha)) * Halpha_amp / 2.86
         self.add_emission_line(Hbeta,amp=Hbeta_amp,fwhm=fwhm)
+
 
         OIII4960_amp = csi / (OIIIrat+1) * Halpha_amp
         self.add_emission_line(OIII_lines[0],amp=OIII4960_amp,fwhm=fwhm)

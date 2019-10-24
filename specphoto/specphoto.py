@@ -94,12 +94,12 @@ class SPSModel:
     def get_colors_emission_line(self,zGrid,age,ebv,HaEw,colorList=None,logzsol=0,**kwargs):
         FilterList = observate.load_filters(self.filter_names)
         color_idxs = self._define_colors(colorList)
-        WaveModel,SpecModel = self.added_emission_line_spectra(age,ebv,HaEw,logzsol=logzsol,**kwargs)
 
         ncolors = len(color_idxs)
         nzGrid = len(zGrid)
         color_grid = np.zeros([ncolors,nzGrid])
         for i,z in enumerate(zGrid):
+            WaveModel,SpecModel = self.added_emission_line_spectra(age,ebv,HaEw,redshift=z,logzsol=logzsol,**kwargs)
             mags = observate.getSED(WaveModel*(1+z),SpecModel, filterlist=FilterList)
             colors = [ mags[c[0]]-mags[c[1]] for c in color_idxs ]
             color_grid[:,i] = colors
