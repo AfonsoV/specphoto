@@ -24,13 +24,18 @@ class SPSModel:
     def __init__(self,bands=None,**kwargs):
         self.model = fsps.StellarPopulation(add_neb_emission=False,**kwargs)
 
-        ## NEED TO UPDATE THIS TO DEAL WITH INOUT KWARGS OVERRIDE DEFAULTS
-        self.model.params['imf_type'] = 1   # Chabrier IMF
-        self.model.params['sfh'] = 1  # Tau model SFH
-        self.model.params['logzsol'] = 0 # solar metallicity
-        self.model.params['dust_type'] = 2 # Calzetti2000
-        self.model.params['dust1'] = 1.0 # must be 1 for Calzetti2000
-        self.model.params['dust2'] = 0.00 * 4.05 # E(B-V) * RV
+        if not "imf_type" in kwargs.keys():
+            self.model.params['imf_type'] = 1   # Chabrier IMF
+        if not "sfh" in kwargs.keys():
+            self.model.params['sfh'] = 1  # Tau model SFH
+        if not "logzsol" in kwargs.keys():
+            self.model.params['logzsol'] = 0 # solar metallicity
+        if not "dust_type" in kwargs.keys():
+            self.model.params['dust_type'] = 2 # Calzetti2000
+        if not "dust1" in kwargs.keys():
+            self.model.params['dust1'] = 1.0 # must be 1 for Calzetti2000
+        if not "dust2" in kwargs.keys():
+            self.model.params['dust2'] = 0.00 * 4.05 # E(B-V) * RV
 
         if bands is None:
             self.set_bands(SPSModel.DefaultBands)
