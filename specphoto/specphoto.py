@@ -14,8 +14,6 @@ except ImportError:
     raise SPError("Package fsps not found, please install this prior to using this package.")
 
 
-
-
 class SPSModel:
 
     DefaultBands = ['wfc_acs_f435w','wfc_acs_f606w','wfc_acs_f814w',\
@@ -105,24 +103,20 @@ class SPSModel:
             color_grid[:,i] = colors
         return color_grid
 
-    def create_grid(self,fname,ebv=None,ages=None,HaEW=None,zGrid=None, colorList=None,debug=False):
+    def create_grid(self,fname,ebv=None,ages=None,HaEW=None,zGrid=None,\
+                    csiGrid = None, alphaGrid =None, o3o2Grid=None,\
+                    colorList=None,debug=False):
 
         def _write_grid(fname):
             fout = h5py.File(fname,"w")
-
             gridDataset = fout.create_dataset("grid",data=model_grid)
-            fout.create_dataset("ages",data=ages)
-            fout.create_dataset("zgrid",data=zGrid)
-            fout.create_dataset("dust",data=ebv)
-            fout.create_dataset("Ha",data=HaEW)
 
             gridDataset.attrs["shape"] = model_grid.shape
             gridDataset.attrs["colors"] = color_idxs
-            gridDataset.attrs["AXIS0"] = "colors"
-            gridDataset.attrs["AXIS1"] = "Ha"
-            gridDataset.attrs["AXIS2"] = "dust"
-            gridDataset.attrs["AXIS3"] = "ages"
-            gridDataset.attrs["AXIS4"] = "zgrid"
+            for i,name in enumerate(allGridNames):
+                fout.create_dataset(name,data=allGrids[i])
+                gridDataset.attrs[f"AXIS{i}"] = name
+
             fout.close()
             return None
 
@@ -142,20 +136,33 @@ class SPSModel:
         if HaEW is None:
             HaEW = np.linspace(0,200,100)
 
+        if csiGrid is None:
+            csiGrid = np.asarray([1.0])
+
+        if alphaGrid is None:
+            alphaGrid = np.asarray([0.0])
+
+        if o3o2Grid is None:
+            o3o2Grid = np.asarray([0.35])
 
         FilterList = observate.load_filters(self.filter_names)
-
 
         ncolors = len(color_idxs)
         nAges = len(ages)
         nHa = len(HaEW)
         ndust = len(ebv)
         nzGrid = len(zGrid)
+        ncsiGrid = len(csiGrid)
+        no3o2Grid = len(o3o2Grid)
+        nalphaGrid = len(alphaGrid)
 
-        model_grid = np.zeros([ncolors,nHa,ndust,nAges,nzGrid])
+        allGrids = [color_idxs,HaEW,ebv,ages,csiGrid,o3o2Grid,alphaGrid,zGrid]
+        allGridNames = ["colors","Ha","dust","ages","csi","o3o2","alpha","redshift"]
+        nElements = [len(grid) for grid in allGrids]
+        model_grid = np.zeros(nElements)
 
         if debug is True:
-            print("Start creating grid")
+            print("Start creating grid: ",model_grid.shape)
         tstart = time.time()
         for i,value in enumerate(ebv):
             if debug is True:
@@ -165,12 +172,14 @@ class SPSModel:
                 wave, spec = self.model.get_spectrum(tage=age,peraa=True)
                 emLineSpec = EmissionSpectrum(wave)
                 for k,Ha in enumerate(HaEW):
-                    emLineSpec.halpha_model(spec, Ha, logzsol=0)
-                    for l,z in enumerate(zGrid):
-                        mags = observate.getSED(wave*(1+z), spec+emLineSpec.flux, filterlist=FilterList)
-                        colors = [ mags[c[0]]-mags[c[1]] for c in color_idxs ]
-
-                        model_grid[:,k,i,j,l] = colors
+                    for ii,csi in enumerate(csiGrid):
+                        for jj,o3o2 in enumerate(o3o2Grid):
+                            for kk,alpha in enumerate(alphaGrid):
+                                for nn,z in enumerate(zGrid):
+                                    emLineSpec.halpha_model(spec, Ha, logzsol=0, csi=csi,alpha=alpha,o3o2=o3o2,redshift=z)
+                                    mags = observate.getSED(wave*(1+z), spec+emLineSpec.flux, filterlist=FilterList)
+                                    colors = [ mags[c[0]]-mags[c[1]] for c in color_idxs ]
+                                    model_grid[:,k,i,j,ii,jj,kk,nn] = colors
         tend = time.time()
         if debug is True:
             print(f"Elapsed {tend-tstart} secs on grid creation")
@@ -203,8 +212,6 @@ class SPSModel:
         # self.model.params['dust2'] = 0.20 * 4.05 # E(B-V) * RV
         # print(self.model.get_mags(tage=0.1,redshift=2.0, bands=self.filter_names))
         return
-
-
 
 
 def running_median(var_x,var_y,nbins,bin_width=None,pre_selx=None,pre_sely=None):
