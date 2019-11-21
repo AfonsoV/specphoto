@@ -89,6 +89,8 @@ class SPSModel:
 
 
     def added_emission_line_spectra(self,age,ebv,HaEw,logzsol=0,**kwargs):
+        self.model.params['dust2'] = ebv * 4.05 # E(B-V) * RV
+        self.model.params['logzsol'] = logzsol # solar metallicity
         wave, spec = self.model.get_spectrum(tage=age,peraa=True)
         emLineSpec = EmissionSpectrum(wave)
         emLineSpec.halpha_model(spec, HaEw, logzsol=logzsol,**kwargs)
